@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TEACHER
+  STUDENT
+}
+
+enum SessionStatus {
+  ACTIVE
+  ENDED
+}
+
+model User {
+  id           String @id @default(uuid())
+  name         String
+  email        String @unique
+  passwordHash String
+  role         Role
+
+  sessionsCreated Session[]       @relation("TeacherSessions")
+  memberships     SessionMember[]
+  pollVotes       PollVote[]
+  messages        ChatMessage[]
+
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+  joinCode    String  @unique
+
+  teacherId String
+  teacher   User   @relation("TeacherSessions", fields: [teacherId], references: [id])
+
+  status SessionStatus @default(ACTIVE)
+
+  members SessionMember[]
+
+  note      SharedNote?
+  polls     Poll[]
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  endedAt   DateTime?
+}
+
+model SessionMember {
+  id String @id @default(uuid())
+
+  sessionId String
+  userId    String
+
+  session Session @relation(fields: [sessionId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  joinedAt DateTime @default(now())
+
+  @@unique([sessionId, userId])
+}
+
+model SharedNote {
+  id String @id @default(uuid())
+
+  sessionId String @unique
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  content String
+
+  version Int @default(1)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Poll {
+  id String @id @default(uuid())
+
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id])
+
+  question String
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  options PollOption[]
+}
+
+model PollOption {
+  id String @id @default(uuid())
+
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id])
+
+  text String
+
+  votes PollVote[]
+}
+
+model PollVote {
+  id String @id @default(uuid())
+
+  pollId   String
+  optionId String
+  userId   String
+
+  option PollOption @relation(fields: [optionId], references: [id])
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+}
+
+model ChatMessage {
+  id String @id @default(uuid())
+
+  sessionId String
+
+  userId String
+
+  email String
+
+  message String
+
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  session Session @relation(fields: [sessionId], references: [id])
+}
